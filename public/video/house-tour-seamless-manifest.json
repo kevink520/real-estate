@@ -1,0 +1,28 @@
+{
+  "file": "assets/video/house-tour-seamless-1080p.mp4",
+  "duration_seconds": 23.833333,
+  "width": 1920,
+  "height": 1080,
+  "fps": 24,
+  "codec": "h264",
+  "size_bytes": 69878440,
+  "audio": false,
+  "editor": "HyperFrames 0.8.62",
+  "composition": "production/smooth-tour/index.html",
+  "transition": {
+    "type": "aligned crossfade",
+    "overlap_frames": 6,
+    "overlap_seconds": 0.25,
+    "start_seconds": 11.791666666666666,
+    "shared_scale": 1.045,
+    "incoming_alignment": {
+      "scale": 0.996,
+      "x": 32,
+      "y": 16
+    },
+    "alignment_release_seconds": 1.25
+  },
+  "kie_credits_used_for_edit": 0,
+  "verification": "HyperFrames checks passed with no findings; exported seam inspected; full decode passed.",
+  "previous_version": "assets/video/house-tour-extended-1080p.mp4"
+}
