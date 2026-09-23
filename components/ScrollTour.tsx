@@ -5,6 +5,7 @@ import Image from "next/image";
 import { tourChapters } from "@/lib/content";
 
 const FRAME_COUNT = 286;
+const FRAME_CACHE_LIMIT = 48;
 const frameSrc = (set: "desktop" | "mobile", i: number) =>
   `/frames/${set}/f_${String(i + 1).padStart(4, "0")}.webp`;
 
@@ -49,32 +50,58 @@ export default function ScrollTour() {
     const frames: (HTMLImageElement | null)[] = new Array(FRAME_COUNT).fill(null);
     let cancelled = false;
 
-    // Progressive loading: coarse stride first so scrubbing works immediately, then fill gaps.
-    const order: number[] = [];
-    const seen = new Set<number>();
-    for (const stride of [16, 8, 4, 2, 1]) {
-      for (let i = 0; i < FRAME_COUNT; i += stride) {
-        if (!seen.has(i)) {
-          seen.add(i);
-          order.push(i);
-        }
+    // Keep nearby full-resolution frames plus coarse fallbacks for large jumps.
+    // Retaining all 286 decoded 1080p frames would take roughly 2.2 GiB.
+    const anchors = new Set<number>([FRAME_COUNT - 1]);
+    for (let i = 0; i < FRAME_COUNT; i += 16) anchors.add(i);
+    const pending = new Map<number, HTMLImageElement>();
+    const failed = new Set<number>();
+    let focus = -1;
+    let order: number[] = [];
+    const trimCache = () => {
+      const loaded = frames.flatMap((img, i) => img ? [i] : []);
+      const removable = loaded.filter((i) => !anchors.has(i))
+        .sort((a, b) => Math.abs(b - focus) - Math.abs(a - focus));
+      for (let n = loaded.length - FRAME_CACHE_LIMIT; n > 0; n--) {
+        frames[removable.shift()!] = null;
       }
-    }
-    let cursor = 0;
-    const loadNext = () => {
-      if (cancelled || cursor >= order.length) return;
-      const i = order[cursor++];
-      const img = new window.Image();
-      img.decoding = "async";
-      img.src = frameSrc(set, i);
-      img.onload = () => {
-        frames[i] = img;
-        if (i === 0 || Math.abs(i - currentFrame) < 4) needsDraw = true;
-        loadNext();
-      };
-      img.onerror = loadNext;
     };
-    for (let k = 0; k < 6; k++) loadNext();
+    const loadNext = () => {
+      if (cancelled) return;
+      while (pending.size < 6) {
+        const i = order.find((index) => !frames[index] && !pending.has(index) && !failed.has(index));
+        if (i === undefined) return;
+        const img = new window.Image();
+        img.decoding = "async";
+        pending.set(i, img);
+        img.onload = () => {
+          pending.delete(i);
+          if (cancelled) return;
+          frames[i] = img;
+          trimCache();
+          needsDraw = true;
+          loadNext();
+        };
+        img.onerror = () => {
+          pending.delete(i);
+          failed.add(i);
+          loadNext();
+        };
+        img.src = frameSrc(set, i);
+      }
+    };
+    const requestFrames = (center: number) => {
+      if (center === focus) return;
+      focus = center;
+      const wanted = new Set<number>([center]);
+      for (let d = 1; d <= 12; d++) {
+        if (center + d < FRAME_COUNT) wanted.add(center + d);
+        if (center - d >= 0) wanted.add(center - d);
+      }
+      for (const i of anchors) wanted.add(i);
+      order = [...wanted];
+      loadNext();
+    };
 
     const nearestLoaded = (i: number) => {
       if (frames[i]) return frames[i];
@@ -123,6 +150,7 @@ export default function ScrollTour() {
       const p = smooth;
 
       const frame = Math.round(clamp(p / SCRUB_END) * (FRAME_COUNT - 1));
+      requestFrames(frame);
       if (frame !== currentFrame || needsDraw) {
         const img = nearestLoaded(frame);
         if (img) {
@@ -165,6 +193,13 @@ export default function ScrollTour() {
 
     return () => {
       cancelled = true;
+      for (const img of pending.values()) {
+        img.onload = null;
+        img.onerror = null;
+        img.removeAttribute("src");
+      }
+      pending.clear();
+      frames.fill(null);
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
       window.removeEventListener("scroll", readScroll);
@@ -293,13 +328,13 @@ export default function ScrollTour() {
               <div className="relative h-px w-full bg-ivory/20">
                 <div ref={progressRef} className="absolute inset-0 origin-left bg-brass-light"
                   style={{ transform: "scaleX(0)" }} />
-                {tourChapters.map((c) => (
+                {/*tourChapters.map((c) => (
                   <span
                     key={c.eyebrow}
                     className="absolute top-1/2 hidden h-1.5 w-1.5 -translate-1/2 rounded-full bg-ivory/60 sm:block"
                     style={{ left: `${c.at * 100}%` }}
                   />
-                ))}
+                ))*/}
               </div>
             </div>
           </div>

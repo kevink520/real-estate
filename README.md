@@ -1,5 +1,18 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Tour frame quality
+
+The scroll tour uses 286 WebP frames at 12 fps, exported directly from
+`public/video/house-tour-seamless-1080p.mp4`. Desktop frames retain the native
+1920×1080 resolution; mobile frames use a centered 810×1080 crop. Both use
+WebP quality 82 and mild luma sharpening (`unsharp=5:5:0.3:3:3:0`).
+This preserves source detail rather than synthesizing a 4K upscale.
+
+Run `npm run tour:frames` with FFmpeg installed to reproduce both sequences.
+The script stages and checks both frame counts before replacing served assets.
+The player retains at most 48 loaded images plus six requests in flight,
+prioritizing nearby frames and retaining coarse fallbacks for scroll jumps.
+
 ## Getting Started
 
 First, run the development server:

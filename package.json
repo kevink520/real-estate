@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "tour:frames": "node scripts/export-tour-frames.mjs"
   },
   "dependencies": {
     "next": "16.3.6",
